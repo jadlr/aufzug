@@ -40,7 +40,7 @@ run :: IO ()
 run = do
   manager <- newManager tlsManagerSettings
   token <- getEnv "FASTA_TOKEN"
-  res <- runExceptT (facility (Just ("Bearer " ++ token)) 10502143 manager (BaseUrl Https "api.deutschebahn.com" 443 "/fasta/v1"))
+  res <- runExceptT (stations (Just ("Bearer " ++ token)) 1000 manager (BaseUrl Https "api.deutschebahn.com" 443 "/fasta/v1"))
   case res of
     Left err -> putStrLn $ "Error: " ++ show err
     Right d -> do
@@ -96,7 +96,8 @@ data Station =
           , stationFacilities :: [Facility]
           } deriving (Show, Generic)
 
-instance FromJSON Station
+instance FromJSON Station where
+  parseJSON = genericParseJSON (defaultOptions { fieldLabelModifier = stationPrefix })
 
 facilityPrefix :: String -> String
 facilityPrefix "facilityEquipmentNumber" = "equipmentnumber"
