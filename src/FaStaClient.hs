@@ -24,13 +24,20 @@ newtype CommaSeparated a = CommaSeparated [a] deriving (Show)
 
 instance ToHttpApiData a => ToHttpApiData (CommaSeparated a) where
   toUrlPiece (CommaSeparated n) = intercalate "," $ fmap toUrlPiece n
-  toQueryParam (CommaSeparated n) = intercalate "," $ fmap toQueryParam n
 
--- TODO missing equipmentnumbers and area on /facilites..probably need an instance of `ToHttpApiData`
+data Area = Area { longitudeWest :: Float
+                 , latitudeSouth :: Float
+                 , longitudeEast :: Float
+                 , latitudeNorth :: Float
+                 } deriving (Show)
+
+instance ToHttpApiData Area where
+  toUrlPiece (Area w s e n)  = intercalate "," [toUrlPiece w, toUrlPiece s, toUrlPiece e, toUrlPiece n]
+
 type FaStaApi = "stations"    :> Auth :> Capture "stationnumber" Integer :> Get '[JSON]  Station
            :<|> "disruptions" :> Auth :> QueryParam "type" String :> QueryParam "equipmentnumber" Integer :> QueryParam "stationnumber" Integer :> Get '[JSON] [Disruption]
            :<|> "disruptions" :> Auth :> Capture "disruptionnumber" Integer :> Get '[JSON]  Disruption
-           :<|> "facilities"  :> Auth :> QueryParam "type" String :> QueryParam "state" String :> QueryParam "stationnumber" Integer :> QueryParam "equipmentnumbers" (CommaSeparated Integer) :> Get '[JSON] [Facility]
+           :<|> "facilities"  :> Auth :> QueryParam "type" String :> QueryParam "state" String :> QueryParam "stationnumber" Integer :> QueryParam "equipmentnumbers" (CommaSeparated Integer) :> QueryParam "area" Area :> Get '[JSON] [Facility]
            :<|> "facilities"  :> Auth :> Capture "equipmentnumber" Integer :> Get '[JSON]  Facility
 
 faStaApi :: Proxy FaStaApi
@@ -39,7 +46,7 @@ faStaApi = Proxy
 stations    :: Maybe String -> Integer -> Manager -> BaseUrl -> ClientM  Station
 disruptions :: Maybe String -> Maybe String -> Maybe Integer -> Maybe Integer -> Manager -> BaseUrl -> ClientM [Disruption]
 disruption  :: Maybe String -> Integer -> Manager -> BaseUrl -> ClientM  Disruption
-facilities  :: Maybe String -> Maybe String -> Maybe String -> Maybe Integer -> Maybe (CommaSeparated Integer) -> Manager -> BaseUrl -> ClientM [Facility]
+facilities  :: Maybe String -> Maybe String -> Maybe String -> Maybe Integer -> Maybe (CommaSeparated Integer) -> Maybe Area -> Manager -> BaseUrl -> ClientM [Facility]
 facility    :: Maybe String -> Integer -> Manager -> BaseUrl -> ClientM  Facility
 stations :<|> disruptions :<|> disruption :<|> facilities :<|> facility = client faStaApi
 
@@ -48,7 +55,7 @@ run :: IO ()
 run = do
   manager <- newManager tlsManagerSettings
   token <- getEnv "FASTA_TOKEN"
-  res <- runExceptT (facilities (Just ("Bearer " ++ token)) (Just "ESCALATOR") (Just "INACTIVE") Nothing (Just $ CommaSeparated [10270570,10479519]) manager (BaseUrl Https "api.deutschebahn.com" 443 "/fasta/v1"))
+  res <- runExceptT (facilities (Just ("Bearer " ++ token)) (Just "ESCALATOR") (Just "INACTIVE") Nothing Nothing (Just $ Area 13.0800 52.3300 13.7700 52.6800) manager (BaseUrl Https "api.deutschebahn.com" 443 "/fasta/v1"))
   case res of
     Left err -> putStrLn $ "Error: " ++ show err
     Right d -> do
