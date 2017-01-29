@@ -1,0 +1,42 @@
+name: aufzug
+
+ghc-options: -Wall
+
+tests:
+  spec:
+    main: Spec.hs
+    source-dirs:
+      - test
+    dependencies:
+      - hspec
+      - aufzug
+      - servant-client
+      - warp >= 3.2.4
+      - http-client
+      - http-types
+
+library:
+  source-dirs:
+    - src
+
+executables:
+  aufzug:
+    main: exe/Main.hs
+    dependencies:
+      - aufzug
+
+dependencies:
+  - base
+  - servant
+  - servant-server
+  - servant-client
+  - transformers
+  - aeson
+  - wai
+  - warp
+  - text
+  - either
+  - http-client
+  - http-client-tls
+  - http-types
+  - time
