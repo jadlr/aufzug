@@ -5,11 +5,10 @@
 
 module StaDaClient where
 
-import Control.Monad.Trans.Except (runExceptT)
 import Data.Aeson
 import Data.Proxy
 import GHC.Generics
-import Network.HTTP.Client (Manager, newManager)
+import Network.HTTP.Client (newManager)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Servant.API
 import Servant.Client
@@ -22,7 +21,7 @@ type StaDaApi = "stations" :> Auth :> QueryParam "offset" Integer :> QueryParam 
 staDaApi :: Proxy StaDaApi
 staDaApi = Proxy
 
-stations :: Maybe String -> Maybe Integer -> Maybe Integer -> Manager -> BaseUrl -> ClientM QueryResult
+stations :: Maybe String -> Maybe Integer -> Maybe Integer -> ClientM QueryResult
 stations = client staDaApi
 
 -- test run
@@ -30,7 +29,7 @@ run' :: IO ()
 run' = do
   manager <- newManager tlsManagerSettings
   token <- getEnv "STADA_TOKEN"
-  res <- runExceptT (stations (Just ("Bearer " ++ token)) (Just 50) (Just 50) manager (BaseUrl Https "api.deutschebahn.com" 443 "/stada/v2"))
+  res <- runClientM (stations (Just ("Bearer " ++ token)) (Just 50) (Just 50)) (ClientEnv manager (BaseUrl Https "api.deutschebahn.com" 443 "/stada/v2"))
   case res of
     Left err -> putStrLn $ "Error: " ++ show err
     Right d -> do

@@ -2,17 +2,17 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module FaStaClient where
 
-import Control.Monad.Trans.Except (runExceptT)
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Proxy
 import Data.Text
 import Data.Time.LocalTime
 import GHC.Generics
-import Network.HTTP.Client (Manager, newManager)
+import Network.HTTP.Client (newManager)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Servant.API
 import Servant.Client
@@ -43,19 +43,19 @@ type FaStaApi = "stations"    :> Auth :> Capture "stationnumber" Integer :> Get 
 faStaApi :: Proxy FaStaApi
 faStaApi = Proxy
 
-stations    :: Maybe String -> Integer -> Manager -> BaseUrl -> ClientM  Station
-disruptions :: Maybe String -> Maybe String -> Maybe Integer -> Maybe Integer -> Manager -> BaseUrl -> ClientM [Disruption]
-disruption  :: Maybe String -> Integer -> Manager -> BaseUrl -> ClientM  Disruption
-facilities  :: Maybe String -> Maybe String -> Maybe String -> Maybe Integer -> Maybe (CommaSeparated Integer) -> Maybe Area -> Manager -> BaseUrl -> ClientM [Facility]
-facility    :: Maybe String -> Integer -> Manager -> BaseUrl -> ClientM  Facility
+stations    :: Maybe String -> Integer -> ClientM  Station
+disruptions :: Maybe String -> Maybe String -> Maybe Integer -> Maybe Integer -> ClientM [Disruption]
+disruption  :: Maybe String -> Integer -> ClientM  Disruption
+facilities  :: Maybe String -> Maybe String -> Maybe String -> Maybe Integer -> Maybe (CommaSeparated Integer) -> Maybe Area -> ClientM [Facility]
+facility    :: Maybe String -> Integer -> ClientM  Facility
 stations :<|> disruptions :<|> disruption :<|> facilities :<|> facility = client faStaApi
 
 -- test run
 run :: IO ()
 run = do
-  manager <- newManager tlsManagerSettings
+  m <- newManager tlsManagerSettings
   token <- getEnv "FASTA_TOKEN"
-  res <- runExceptT (facilities (Just ("Bearer " ++ token)) (Just "ESCALATOR") (Just "INACTIVE") Nothing Nothing (Just $ Area 13.0800 52.3300 13.7700 52.6800) manager (BaseUrl Https "api.deutschebahn.com" 443 "/fasta/v1"))
+  res <- runClientM (facilities (Just ("Bearer " ++ token)) (Just "ESCALATOR") (Just "INACTIVE") Nothing Nothing (Just $ Area 13.0800 52.3300 13.7700 52.6800)) (ClientEnv m (BaseUrl Https "api.deutschebahn.com" 443 "/fasta/v1"))
   case res of
     Left err -> putStrLn $ "Error: " ++ show err
     Right d -> do
