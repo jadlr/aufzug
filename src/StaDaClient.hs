@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module StaDaClient where
 
@@ -10,26 +11,30 @@ import Data.Proxy
 import GHC.Generics
 import Network.HTTP.Client (newManager)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
-import Servant.API
+import Servant.API hiding (addHeader)
 import Servant.Client
 import System.Environment (getEnv)
+import Servant.Common.Req (Req, addHeader)
 
-type Auth = Header "Authorization" String
+type instance AuthClientData (AuthProtect "api_token") = String
 
-type StaDaApi = "stations" :> Auth :> QueryParam "offset" Integer :> QueryParam "limit" Integer :> Get '[JSON] QueryResult
+type StaDaApi = "stations" :> AuthProtect "api_token" :> QueryParam "offset" Integer :> QueryParam "limit" Integer :> Get '[JSON] QueryResult
 
 staDaApi :: Proxy StaDaApi
 staDaApi = Proxy
 
-stations :: Maybe String -> Maybe Integer -> Maybe Integer -> ClientM QueryResult
+stations :: AuthenticateReq (AuthProtect "api_token") -> Maybe Integer -> Maybe Integer -> ClientM QueryResult
 stations = client staDaApi
+
+authenticateReq :: String -> Req -> Req
+authenticateReq t = addHeader "Authorization" ("Bearer " ++ t)
 
 -- test run
 run' :: IO ()
 run' = do
   manager <- newManager tlsManagerSettings
   token <- getEnv "STADA_TOKEN"
-  res <- runClientM (stations (Just ("Bearer " ++ token)) (Just 50) (Just 50)) (ClientEnv manager (BaseUrl Https "api.deutschebahn.com" 443 "/stada/v2"))
+  res <- runClientM (stations (mkAuthenticateReq token authenticateReq) (Just 50) (Just 50)) (ClientEnv manager (BaseUrl Https "api.deutschebahn.com" 443 "/stada/v2"))
   case res of
     Left err -> putStrLn $ "Error: " ++ show err
     Right d -> do
